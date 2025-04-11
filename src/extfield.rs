@@ -14,7 +14,7 @@ struct Order {
 
 impl Order {
     /// Take a prime power q = p^k and make it a finite field order.
-    fn new(q: usize) -> Self {
+    fn new_prime(q: usize) -> Self {
         let mut p = 2;
         let mut q2 = q;
 
@@ -37,35 +37,57 @@ impl Order {
         }
         Order { q, p, k }
     }
+
+    /// Take a power q = p^k and make it a finite field order.
+    fn new(q: usize, p: usize) -> Self {
+        let mut k = 0;
+        let mut q2 = q;
+        while q2 > 1 {
+            if q2 % p == 0 {
+                k += 1;
+                q2 /= p;
+            }
+        }
+        if q2 != 1 {
+            panic!("{} is not a power of {}", q, p);
+        }
+        Order { q, p, k }
+    }
 }
 
+/// A finite field that is an extension of another field.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FiniteField {
+pub struct ExtField<F: Field> {
     /// The order of the field, q = p^k.
     order: Order,
 
     /// The prime field of order p.
-    pf: PrimeField,
+    sub: F,
 
     /// The irreducible polynomial of degree k that generates the field.
-    irr: Poly<PrimeField>,
+    irr: Poly<F>,
 }
 
-impl FiniteField {
-    /// Construct a finite field of order q = p^k with the given irreducible polynomial.
+impl ExtField<PrimeField> {
+    /// Construct a extended field of order q = p^k, where p is a prime number.
+    pub fn over_prime(q: usize) -> ExtField<PrimeField> {
+        let order = Order::new_prime(q);
+        ExtField::new(PrimeField::new(order.p), q)
+    }
+}
+
+impl<F: Field> ExtField<F> {
+    /// Construct a finite field of order q = p^k with the given irreducible polynomial,
+    /// where p is the order of the subfield.
     ///
     /// # Safety
     ///
     /// `irr` must be an irreducible polynomial of degree k over the prime field of order p.
-    pub unsafe fn with_irr(q: usize, irr: Poly<PrimeField>) -> Self {
-        let order = Order::new(q);
-        let pf = PrimeField::new(order.p);
-        assert_eq!(
-            pf,
-            *irr.field(),
-            "irreducible polynomial must be over the prime field of order p = {} (found {})",
-            order.p,
-            irr.field().order()
+    pub unsafe fn with_irr(sub: F, q: usize, irr: Poly<F>) -> Self {
+        let order = Order::new(q, sub.order());
+        assert!(
+            sub == *irr.field(),
+            "irreducible polynomial must be over the same subfield"
         );
         assert!(
             irr.degree().unwrap_or(0) == order.k,
@@ -77,24 +99,28 @@ impl FiniteField {
             }
         );
         assert!(irr[order.k] == 1, "irreducible polynomial must be monic");
-        FiniteField { order, pf, irr }
+        ExtField { order, sub, irr }
     }
 
-    /// Construct a finite field of order q = p^k.
-    pub fn new(q: usize) -> Self {
-        let order = Order::new(q);
-        let pf = PrimeField::new(order.p);
-        let irr = find_irr(pf, order.k);
-        FiniteField { order, pf, irr }
+    /// Construct a extended field of order q = p^k, where p is the order of the subfield.
+    pub fn new(sub: F, q: usize) -> Self {
+        let order = Order::new(q, sub.order());
+        let irr = find_irr(sub.clone(), order.k);
+        ExtField { order, sub, irr }
     }
 
     /// Get the irreducible polynomial of the field.
-    pub fn irr(&self) -> &Poly<PrimeField> {
+    pub fn irr(&self) -> &Poly<F> {
         &self.irr
     }
 
-    /// Regard an element as a vector over the prime field.
-    fn int2poly(&self, a: usize) -> Poly<PrimeField> {
+    /// Determine if the field is prime.
+    pub fn is_prime(&self) -> bool {
+        self.order.k == 1
+    }
+
+    /// Regard an element as a vector over the subfield.
+    pub fn elem2poly(&self, a: usize) -> Poly<F> {
         assert!(a < self.order.q, "element out of range");
 
         let mut v = vec![0; self.order.k];
@@ -103,48 +129,45 @@ impl FiniteField {
             v[i] = a % self.order.p;
             a /= self.order.p;
         }
-        Poly::with_coeffs(self.pf, v)
+        Poly::with_coeffs(self.sub.clone(), v)
     }
 
-    /// Regard a vector over the prime field as an element.
-    fn poly2int(&self, a: Poly<PrimeField>) -> usize {
-        assert!(
-            a.degree().unwrap_or(0) < self.order.k,
-            "element out of range"
-        );
+    /// Regard a vector over the subfield as an element.
+    pub fn poly2elem(&self, a: Poly<F>) -> usize {
+        assert!(a.field() == &self.sub, "field mismatch");
 
         let mut n = 0;
         for i in (0..self.order.k).rev() {
-            n = n * self.order.p + a[i];
+            n = n * self.sub.order() + a[i];
         }
         n
     }
 }
 
-impl Field for FiniteField {
+impl<F: Field> Field for ExtField<F> {
     fn order(&self) -> usize {
         self.order.q
     }
 
     fn add(&self, a: usize, b: usize) -> usize {
         assert!(a < self.order.q && b < self.order.q, "element out of range");
-        let va = self.int2poly(a);
-        let vb = self.int2poly(b);
-        self.poly2int(va + vb)
+        let va = self.elem2poly(a);
+        let vb = self.elem2poly(b);
+        self.poly2elem(va + vb)
     }
 
     fn sub(&self, a: usize, b: usize) -> usize {
         assert!(a < self.order.q && b < self.order.q, "element out of range");
-        let va = self.int2poly(a);
-        let vb = self.int2poly(b);
-        self.poly2int(va - vb)
+        let va = self.elem2poly(a);
+        let vb = self.elem2poly(b);
+        self.poly2elem(va - vb)
     }
 
     fn mul(&self, a: usize, b: usize) -> usize {
         assert!(a < self.order.q && b < self.order.q, "element out of range");
-        let va = self.int2poly(a);
-        let vb = self.int2poly(b);
-        self.poly2int((va * vb) % self.irr.clone())
+        let va = self.elem2poly(a);
+        let vb = self.elem2poly(b);
+        self.poly2elem((va * vb) % self.irr.clone())
     }
 
     fn inv(&self, a: usize) -> usize {
@@ -157,13 +180,6 @@ impl Field for FiniteField {
         }
         panic!("no inverse found");
     }
-
-    fn primitive(&self) -> usize {
-        let mut irr = self.irr.clone();
-        irr.set(self.order.k, 0);
-        assert!(irr.degree().unwrap() == self.order.k - 1);
-        self.poly2int(irr)
-    }
 }
 
 #[cfg(test)]
@@ -171,12 +187,33 @@ mod tests {
     use super::*;
 
     #[test]
+    fn transparent() {
+        let ff = ExtField::over_prime(5);
+        let pf = PrimeField::new(5);
+
+        for i in 0..5 {
+            if i != 0 {
+                assert_eq!(ff.inv(i), pf.inv(i));
+            }
+
+            for j in 0..5 {
+                assert_eq!(ff.add(i, j), pf.add(i, j));
+                assert_eq!(ff.sub(i, j), pf.sub(i, j));
+                assert_eq!(ff.mul(i, j), pf.mul(i, j));
+                if j != 0 {
+                    assert_eq!(ff.div(i, j), pf.div(i, j));
+                }
+            }
+        }
+    }
+
+    #[test]
     fn custom_irr_4() {
         let pf = PrimeField::new(2);
 
         // Irreducible polynomial: x^2 + x + 1
         let irr = Poly::with_coeffs(pf, [1, 1, 1]);
-        let ff = unsafe { FiniteField::with_irr(4, irr) };
+        let ff = unsafe { ExtField::with_irr(pf, 4, irr) };
 
         let add_table = [[0, 1, 2, 3], [1, 0, 3, 2], [2, 3, 0, 1], [3, 2, 1, 0]];
         let mul_table = [[0, 0, 0, 0], [0, 1, 2, 3], [0, 2, 3, 1], [0, 3, 1, 2]];
@@ -217,7 +254,7 @@ mod tests {
 
     #[test]
     fn nine() {
-        let ff = FiniteField::new(9);
+        let ff = ExtField::over_prime(9);
         assert_eq!(ff.order(), 9);
 
         // (F, +) is Abelian group

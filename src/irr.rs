@@ -16,7 +16,9 @@ fn try_divide<F: Field>(order: usize, poly: &mut Poly<F>, record: &mut Option<Po
         if i == order {
             if (poly.clone() % divisor.clone()).degree().is_none() {
                 // Found a divisor, divide the polynomial by it.
-                *record = Some(divisor.clone());
+                if record.is_none() {
+                    *record = Some(divisor.clone());
+                }
                 *poly = poly.clone() / divisor;
             }
             return;

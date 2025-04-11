@@ -57,23 +57,6 @@ impl Field for PrimeField {
 
         mod_pow(a, self.p - 2, self.p)
     }
-
-    fn primitive(&self) -> usize {
-        if self.p == 2 {
-            return 1;
-        }
-        'outer: for i in 2..self.p {
-            let mut x = 1;
-            for _ in 1..(self.p - 1) {
-                x = (x * i) % self.p;
-                if x == 1 {
-                    continue 'outer;
-                }
-            }
-            return i;
-        }
-        unreachable!("impossible to find no primitive elements in a prime field");
-    }
 }
 
 #[cfg(test)]

@@ -286,9 +286,9 @@ mod tests {
         assert_eq!(p1[2], 1);
         assert_eq!(Poly::new(pf)[3], 0);
 
+        // Arithmetic
         assert_eq!(p1.clone() + p2.clone(), Poly::with_coeffs(pf, [0, 1, 0, 1]));
         assert_eq!(p1.clone() - p2.clone(), Poly::with_coeffs(pf, [0, 1, 0, 1]));
-
         assert_eq!(
             p1.clone() * p2.clone(),
             Poly::with_coeffs(pf, [1, 1, 0, 0, 1, 1])

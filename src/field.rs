@@ -1,3 +1,4 @@
+/// Trait for *finite* fields.
 pub trait Field: Send + Sync + Eq + Clone {
     /// Return the order of the field.
     fn order(&self) -> usize;
@@ -26,5 +27,20 @@ pub trait Field: Send + Sync + Eq + Clone {
     }
 
     /// Get a primitive element of the field.
-    fn primitive(&self) -> usize;
+    fn primitive(&self) -> usize {
+        if self.order() == 2 {
+            return 1;
+        }
+        'outer: for i in 2..self.order() {
+            let mut x = 1;
+            for _ in 1..(self.order() - 1) {
+                x = self.mul(x, i);
+                if x == 1 {
+                    continue 'outer;
+                }
+            }
+            return i;
+        }
+        unreachable!("impossible to find no primitive elements in a prime field");
+    }
 }
