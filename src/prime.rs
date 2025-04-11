@@ -15,7 +15,7 @@ impl PrimeField {
         // Ensure p is a prime.
         for i in 2..(p as f64).sqrt() as usize + 1 {
             if p % i == 0 {
-                panic!("order {} is not a prime", p);
+                panic!("invalid order {}", p);
             }
         }
         Self { p }
@@ -59,10 +59,20 @@ impl Field for PrimeField {
     }
 
     fn primitive(&self) -> usize {
-        match self.p {
-            2 => 1,
-            _ => 2,
+        if self.p == 2 {
+            return 1;
         }
+        'outer: for i in 2..self.p {
+            let mut x = 1;
+            for _ in 1..(self.p - 1) {
+                x = (x * i) % self.p;
+                if x == 1 {
+                    continue 'outer;
+                }
+            }
+            return i;
+        }
+        unreachable!("impossible to find no primitive elements in a prime field");
     }
 }
 
@@ -83,6 +93,14 @@ mod tests {
     }
 
     #[test]
+    fn primitive() {
+        assert_eq!(PrimeField::new(2).primitive(), 1);
+        assert_eq!(PrimeField::new(3).primitive(), 2);
+        assert_eq!(PrimeField::new(5).primitive(), 2);
+        assert_eq!(PrimeField::new(7).primitive(), 3);
+    }
+
+    #[test]
     #[should_panic(expected = "division by zero")]
     fn div_by_zero() {
         let field = PrimeField { p: 7 };
@@ -90,7 +108,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "order 6 is not a prime")]
+    #[should_panic(expected = "invalid order 6")]
     fn invalid_order() {
         PrimeField::new(6);
     }
