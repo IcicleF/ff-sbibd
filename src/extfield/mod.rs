@@ -1,5 +1,11 @@
 //! General finite field arithmetic.
 
+mod table;
+
+use std::sync::Arc;
+
+use table::ArithmeticTable;
+
 use crate::field::Field;
 use crate::irr::find_irr;
 use crate::poly::Poly;
@@ -66,6 +72,9 @@ pub struct ExtField<F: Field> {
 
     /// The irreducible polynomial of degree k that generates the field.
     irr: Poly<F>,
+
+    /// Arithemetic table.
+    table: Option<Arc<ArithmeticTable>>,
 }
 
 impl ExtField<PrimeField> {
@@ -77,6 +86,8 @@ impl ExtField<PrimeField> {
 }
 
 impl<F: Field> ExtField<F> {
+    const MAX_CACHE_ORDER: usize = 1000;
+
     /// Construct a finite field of order q = p^k with the given irreducible polynomial,
     /// where p is the order of the subfield.
     ///
@@ -99,24 +110,32 @@ impl<F: Field> ExtField<F> {
             }
         );
         assert!(irr[order.k] == 1, "irreducible polynomial must be monic");
-        ExtField { order, sub, irr }
+        let mut f = ExtField {
+            order,
+            sub,
+            irr,
+            table: None,
+        };
+        if f.order.q <= Self::MAX_CACHE_ORDER {
+            f.table = Some(ArithmeticTable::new(&f));
+        }
+        f
     }
 
     /// Construct a extended field of order q = p^k, where p is the order of the subfield.
     pub fn new(sub: F, q: usize) -> Self {
         let order = Order::new(q, sub.order());
         let irr = find_irr(sub.clone(), order.k);
-        ExtField { order, sub, irr }
-    }
-
-    /// Get the irreducible polynomial of the field.
-    pub fn irr(&self) -> &Poly<F> {
-        &self.irr
-    }
-
-    /// Determine if the field is prime.
-    pub fn is_prime(&self) -> bool {
-        self.order.k == 1
+        let mut f = ExtField {
+            order,
+            sub,
+            irr,
+            table: None,
+        };
+        if f.order.q <= Self::MAX_CACHE_ORDER {
+            f.table = Some(ArithmeticTable::new(&f));
+        }
+        f
     }
 
     /// Regard an element as a vector over the subfield.
@@ -150,13 +169,28 @@ impl<F: Field> Field for ExtField<F> {
     }
 
     fn add(&self, a: usize, b: usize) -> usize {
+        if let Some(table) = &self.table {
+            return table.add[a][b];
+        }
+
         assert!(a < self.order.q && b < self.order.q, "element out of range");
         let va = self.elem2poly(a);
         let vb = self.elem2poly(b);
         self.poly2elem(va + vb)
     }
 
+    fn neg(&self, a: usize) -> usize {
+        if let Some(table) = &self.table {
+            return table.neg[a];
+        }
+        self.sub(0, a)
+    }
+
     fn sub(&self, a: usize, b: usize) -> usize {
+        if let Some(table) = &self.table {
+            return table.add[a][table.neg[b]];
+        }
+
         assert!(a < self.order.q && b < self.order.q, "element out of range");
         let va = self.elem2poly(a);
         let vb = self.elem2poly(b);
@@ -164,6 +198,10 @@ impl<F: Field> Field for ExtField<F> {
     }
 
     fn mul(&self, a: usize, b: usize) -> usize {
+        if let Some(table) = &self.table {
+            return table.mul[a][b];
+        }
+
         assert!(a < self.order.q && b < self.order.q, "element out of range");
         let va = self.elem2poly(a);
         let vb = self.elem2poly(b);
@@ -173,6 +211,11 @@ impl<F: Field> Field for ExtField<F> {
     fn inv(&self, a: usize) -> usize {
         assert!(a < self.order.q, "element out of range");
         assert!(a != 0, "division by zero");
+
+        if let Some(table) = &self.table {
+            return table.inv[a];
+        }
+
         for i in 1..self.order.q {
             if self.mul(a, i) == 1 {
                 return i;
