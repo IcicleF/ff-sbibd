@@ -32,11 +32,9 @@ impl Order {
         }
 
         let mut k = 0;
-        while q2 > 1 {
-            if q2 % p == 0 {
-                k += 1;
-                q2 /= p;
-            }
+        while q2 % p == 0 {
+            k += 1;
+            q2 /= p;
         }
         if q2 != 1 {
             panic!("{} is not a prime power", q);
@@ -48,11 +46,9 @@ impl Order {
     fn new(q: usize, p: usize) -> Self {
         let mut k = 0;
         let mut q2 = q;
-        while q2 > 1 {
-            if q2 % p == 0 {
-                k += 1;
-                q2 /= p;
-            }
+        while q2 % p == 0 {
+            k += 1;
+            q2 /= p;
         }
         if q2 != 1 {
             panic!("{} is not a power of {}", q, p);
@@ -391,5 +387,11 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    #[should_panic]
+    fn not_prime_power() {
+        ExtField::over_prime(6);
     }
 }
