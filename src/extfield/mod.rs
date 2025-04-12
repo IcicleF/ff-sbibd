@@ -92,11 +92,11 @@ impl<F: Field> ExtField<F> {
     /// `irr` must be an irreducible polynomial of degree k over the prime field of order p.
     pub unsafe fn with_irr(sub: F, q: usize, irr: Poly<F>) -> Self {
         let order = Order::new(q, sub.order());
-        assert!(
+        debug_assert!(
             sub == *irr.field(),
             "irreducible polynomial must be over the same subfield"
         );
-        assert!(
+        debug_assert!(
             irr.degree().unwrap_or(0) == order.k,
             "irreducible polynomial must be of degree k = {} (found {})",
             order.k,
@@ -105,7 +105,7 @@ impl<F: Field> ExtField<F> {
                 None => "-inf".to_owned(),
             }
         );
-        assert!(irr[order.k] == 1, "irreducible polynomial must be monic");
+        debug_assert!(irr[order.k] == 1, "irreducible polynomial must be monic");
         let mut f = ExtField {
             order,
             sub,
@@ -136,7 +136,7 @@ impl<F: Field> ExtField<F> {
 
     /// Regard an element as a vector over the subfield.
     pub fn elem2poly(&self, a: usize) -> Poly<F> {
-        assert!(a < self.order.q, "element out of range");
+        debug_assert!(a < self.order.q, "element out of range");
 
         let mut v = vec![0; self.order.k];
         let mut a = a;
@@ -149,7 +149,7 @@ impl<F: Field> ExtField<F> {
 
     /// Regard a vector over the subfield as an element.
     pub fn poly2elem(&self, a: Poly<F>) -> usize {
-        assert!(a.field() == &self.sub, "field mismatch");
+        debug_assert!(a.field() == &self.sub, "field mismatch");
 
         let mut n = 0;
         for i in (0..self.order.k).rev() {
@@ -165,11 +165,10 @@ impl<F: Field> Field for ExtField<F> {
     }
 
     fn add(&self, a: usize, b: usize) -> usize {
+        debug_assert!(a < self.order.q && b < self.order.q, "element out of range");
         if let Some(table) = &self.table {
             return table.add[a][b];
         }
-
-        assert!(a < self.order.q && b < self.order.q, "element out of range");
         let va = self.elem2poly(a);
         let vb = self.elem2poly(b);
         self.poly2elem(va + vb)
@@ -183,30 +182,28 @@ impl<F: Field> Field for ExtField<F> {
     }
 
     fn sub(&self, a: usize, b: usize) -> usize {
+        debug_assert!(a < self.order.q && b < self.order.q, "element out of range");
         if let Some(table) = &self.table {
             return table.add[a][table.neg[b]];
         }
-
-        assert!(a < self.order.q && b < self.order.q, "element out of range");
         let va = self.elem2poly(a);
         let vb = self.elem2poly(b);
         self.poly2elem(va - vb)
     }
 
     fn mul(&self, a: usize, b: usize) -> usize {
+        debug_assert!(a < self.order.q && b < self.order.q, "element out of range");
         if let Some(table) = &self.table {
             return table.mul[a][b];
         }
-
-        assert!(a < self.order.q && b < self.order.q, "element out of range");
         let va = self.elem2poly(a);
         let vb = self.elem2poly(b);
         self.poly2elem((va * vb) % self.irr.clone())
     }
 
     fn inv(&self, a: usize) -> usize {
-        assert!(a < self.order.q, "element out of range");
-        assert!(a != 0, "division by zero");
+        debug_assert!(a < self.order.q, "element out of range");
+        debug_assert!(a != 0, "division by zero");
 
         if let Some(table) = &self.table {
             return table.inv[a];

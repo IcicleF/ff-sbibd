@@ -10,7 +10,7 @@ pub struct PrimeField {
 impl PrimeField {
     /// Construct a prime field of order p.
     pub fn new(p: usize) -> Self {
-        assert!(p > 1, "invalid order {}", p);
+        debug_assert!(p > 1, "invalid order {}", p);
 
         // Ensure p is a prime.
         for i in 2..(p as f64).sqrt() as usize + 1 {
@@ -40,7 +40,7 @@ impl Field for PrimeField {
     }
 
     fn inv(&self, a: usize) -> usize {
-        assert!(a != 0, "division by zero");
+        debug_assert!(a != 0, "division by zero");
 
         fn mod_pow(mut base: usize, mut exp: usize, modulus: usize) -> usize {
             let mut result = 1;

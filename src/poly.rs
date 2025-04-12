@@ -27,9 +27,9 @@ impl<F: Field> Poly<F> {
     /// The coefficients are in increasing order of degree.
     pub fn with_coeffs(f: F, coeffs: impl IntoIterator<Item = usize>) -> Self {
         let coeffs = coeffs.into_iter().collect::<Vec<_>>();
-        assert!(
+        debug_assert!(
             coeffs.iter().all(|&c| c < f.order()),
-            "coefficients must be in the field"
+            "coefficients must be in the field",
         );
 
         // Remove trailing zero coefficients
@@ -90,7 +90,7 @@ impl<F: Field> Add for Poly<F> {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        assert!(self.f == rhs.f, "polynomials must be over the same field");
+        debug_assert!(self.f == rhs.f, "polynomials must be over the same field");
 
         let mut coeffs = vec![0; self.coeffs.len().max(rhs.coeffs.len())];
         for i in 0..coeffs.len() {
@@ -115,7 +115,7 @@ impl<F: Field> Sub for Poly<F> {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        assert!(self.f == rhs.f, "polynomials must be over the same field");
+        debug_assert!(self.f == rhs.f, "polynomials must be over the same field");
 
         let mut coeffs = vec![0; self.coeffs.len().max(rhs.coeffs.len())];
         for i in 0..coeffs.len() {
@@ -153,7 +153,7 @@ impl<F: Field> Mul for Poly<F> {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        assert!(self.f == rhs.f, "polynomials must be over the same field");
+        debug_assert!(self.f == rhs.f, "polynomials must be over the same field");
 
         if self.degree().is_none() || rhs.degree().is_none() {
             return Poly::new(self.f);
@@ -175,8 +175,8 @@ impl<F: Field> Div for Poly<F> {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
-        assert!(self.f == rhs.f, "polynomials must be over the same field");
-        assert!(rhs.degree().is_some(), "division by zero");
+        debug_assert!(self.f == rhs.f, "polynomials must be over the same field");
+        debug_assert!(rhs.degree().is_some(), "division by zero");
 
         if self.degree().is_none() {
             return self;
@@ -206,8 +206,8 @@ impl<F: Field> Rem for Poly<F> {
     type Output = Self;
 
     fn rem(self, rhs: Self) -> Self::Output {
-        assert!(self.f == rhs.f, "polynomials must be over the same field");
-        assert!(rhs.degree().is_some(), "division by zero");
+        debug_assert!(self.f == rhs.f, "polynomials must be over the same field");
+        debug_assert!(rhs.degree().is_some(), "division by zero");
 
         if self.degree().is_none() {
             return self;

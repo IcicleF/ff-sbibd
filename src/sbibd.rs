@@ -28,7 +28,7 @@ pub fn find_diffset(q: usize) -> Vec<usize> {
         }
         line
     };
-    assert!(line.len() == (q + 1) * (q - 1));
+    debug_assert!(line.len() == (q + 1) * (q - 1));
 
     let mut x = 1;
     let mut ret = Vec::new();
@@ -40,11 +40,11 @@ pub fn find_diffset(q: usize) -> Vec<usize> {
         x = f3.mul(x, alpha);
     }
 
-    assert!(
+    debug_assert!(
         ret.len() == q + 1,
         "ret.len() = {} for q = {}",
         ret.len(),
-        q
+        q,
     );
     ret
 }

@@ -63,10 +63,10 @@ pub(crate) fn find_irr<F: Field>(f: F, order: usize) -> Poly<F> {
     // Find a divisor of order `n`.
     let mut record = None;
     try_divide(order, &mut poly, &mut record);
-    assert!(
+    debug_assert!(
         record.is_some(),
         "failed to find an irreducible polynomial of order {}",
-        order
+        order,
     );
     record.unwrap()
 }
@@ -81,7 +81,7 @@ mod tests {
         let f = PrimeField::new(2);
         let irr = find_irr(f.clone(), 2);
 
-        assert!(irr.degree().is_some());
+        debug_assert!(irr.degree().is_some());
         assert_eq!(irr.degree().unwrap(), 2);
         assert_eq!(irr[0], 1);
         assert_eq!(irr[2], 1);
@@ -93,13 +93,13 @@ mod tests {
         let f = PrimeField::new(2);
         let irr = find_irr(f.clone(), 3);
 
-        assert!(irr.degree().is_some());
+        debug_assert!(irr.degree().is_some());
         assert_eq!(irr.degree().unwrap(), 3);
         assert_eq!(irr[0], 1);
         assert_eq!(irr[3], 1);
-        assert!(
+        debug_assert!(
             (irr[1] == 0 && irr[2] == 1) || (irr[1] == 1 && irr[2] == 0),
-            "irreducible polynomial should be of the form x^3 + x^2 + 1 or x^3 + x + 1"
+            "irreducible polynomial should be of the form x^3 + x^2 + 1 or x^3 + x + 1",
         );
     }
 }
